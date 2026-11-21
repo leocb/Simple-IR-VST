@@ -1,0 +1,125 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Universal)
+            os: macos-latest
+            artifact: Simple-IR-VST-macOS
+          - name: Windows (x64)
+            os: windows-latest
+            artifact: Simple-IR-VST-Windows
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version=$(sed -n 's/^project(IRLoader VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # ---------------------------------------------------------------- macOS
+      - name: Configure (macOS)
+        if: runner.os == 'macOS'
+        run: >
+          cmake -S . -B build-universal -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          -DIRLOADER_COPY_PLUGINS_AFTER_BUILD=OFF
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: cmake --build build-universal --parallel
+
+      - name: Test (macOS)
+        if: runner.os == 'macOS'
+        run: ./build-universal/IRLoaderTests
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: ./scripts/package-release.sh "${{ steps.version.outputs.version }}"
+
+      # -------------------------------------------------------------- Windows
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+          -DIRLOADER_COPY_PLUGINS_AFTER_BUILD=OFF
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --build build --config Release --parallel
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        run: .\build\Release\IRLoaderTests.exe
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/package-release.ps1 -Version "${{ steps.version.outputs.version }}"
+
+      # -------------------------------------------------------------- Artifacts
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Simple-IR-VST-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Upload assets to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" artifacts/*.zip --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" artifacts/*.zip \
+              --title "Simple IR VST $version" \
+              --notes-file .github/release-notes.md
+          fi

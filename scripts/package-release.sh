@@ -27,8 +27,8 @@ mkdir -p "$STAGE"
 cp -R "$BUILD/VST3/IR Loader.vst3"        "$STAGE/"
 cp -R "$BUILD/AU/IR Loader.component"     "$STAGE/"
 cp -R "$BUILD/Standalone/IR Loader.app"   "$STAGE/"
-cp     "$ROOT/Packaging/Install.command"  "$STAGE/"
-cp     "$ROOT/Packaging/README.txt"       "$STAGE/"
+cp     "$ROOT/Packaging/macOS/Install.command"  "$STAGE/"
+cp     "$ROOT/Packaging/macOS/README.txt"       "$STAGE/"
 chmod +x "$STAGE/Install.command"
 
 # ditto keeps bundle metadata intact, which matters for plugin bundles.

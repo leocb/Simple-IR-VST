@@ -1,4 +1,4 @@
-Simple IR VST 1.0.0 — macOS (Universal: Apple Silicon + Intel)
+Simple IR VST — macOS (Universal: Apple Silicon + Intel)
 ================================================================
 
 A minimal impulse response loader: load an IR audio file, blend it in with one
