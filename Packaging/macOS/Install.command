@@ -30,5 +30,7 @@ echo "The standalone app is in this folder; drag it to /Applications if you"
 echo "want to keep it. Restart your DAW and rescan plugins if needed."
 echo ""
 
-read -n 1 -s -r -p "Press any key to close..."
-echo ""
+if [ -z "${CI:-}" ]; then
+    read -n 1 -s -r -p "Press any key to close..."
+    echo ""
+fi

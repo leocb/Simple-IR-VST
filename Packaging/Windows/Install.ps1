@@ -55,4 +55,6 @@ Write-Host "The standalone app is 'IR Loader.exe' in this folder."
 Write-Host "Restart your DAW and rescan plugins if it does not appear."
 Write-Host ""
 
-Read-Host "Press Enter to close"
+if (-not $env:CI) {
+    Read-Host "Press Enter to close" | Out-Null
+}

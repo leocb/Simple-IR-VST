@@ -62,6 +62,15 @@ jobs:
         if: runner.os == 'macOS'
         run: ./scripts/package-release.sh "${{ steps.version.outputs.version }}"
 
+      - name: Test installer (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          install_home="$RUNNER_TEMP/ir-install-test"
+          mkdir -p "$install_home"
+          HOME="$install_home" "./dist/Simple IR VST ${{ steps.version.outputs.version }}/Install.command"
+          test -f "$install_home/Library/Audio/Plug-Ins/VST3/IR Loader.vst3/Contents/MacOS/IR Loader"
+          test -f "$install_home/Library/Audio/Plug-Ins/Components/IR Loader.component/Contents/MacOS/IR Loader"
+
       # -------------------------------------------------------------- Windows
       - name: Set up MSVC (Windows)
         if: runner.os == 'Windows'
@@ -88,6 +97,22 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/package-release.ps1 -Version "${{ steps.version.outputs.version }}"
+
+      - name: Test installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'ir-install-test'
+          $stage = Join-Path $PWD "dist\Simple IR VST ${{ steps.version.outputs.version }}"
+          & (Join-Path $stage 'Install.ps1')
+
+          $plugin = Join-Path $env:LOCALAPPDATA 'Programs\Common\VST3\IR Loader.vst3\Contents\x86_64-win\IR Loader.vst3'
+
+          if (-not (Test-Path $plugin)) {
+              throw "Installer did not create $plugin"
+          }
+
+          Write-Host "Installer test passed: $plugin"
 
       # -------------------------------------------------------------- Artifacts
       - name: Upload artifact
@@ -122,11 +147,24 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
+          notes="$(mktemp)"
+
+          sed "s/<version>/${version}/g" .github/release-notes.md > "$notes"
+
+          {
+            echo ""
+            echo "## Checksums (SHA-256)"
+            echo ""
+            echo '```'
+            (cd artifacts && shasum -a 256 ./*.zip | sed 's|\./||')
+            echo '```'
+          } >> "$notes"
 
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" artifacts/*.zip --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file "$notes"
           else
             gh release create "$GITHUB_REF_NAME" artifacts/*.zip \
               --title "Simple IR VST $version" \
-              --notes-file .github/release-notes.md
+              --notes-file "$notes"
           fi
