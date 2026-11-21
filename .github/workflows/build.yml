@@ -28,7 +28,7 @@ jobs:
             artifact: Simple-IR-VST-Windows
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Resolve version
         id: version
@@ -63,19 +63,26 @@ jobs:
         run: ./scripts/package-release.sh "${{ steps.version.outputs.version }}"
 
       # -------------------------------------------------------------- Windows
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Configure (Windows)
         if: runner.os == 'Windows'
         run: >
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
           -DIRLOADER_COPY_PLUGINS_AFTER_BUILD=OFF
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --parallel
 
       - name: Test (Windows)
         if: runner.os == 'Windows'
-        run: .\build\Release\IRLoaderTests.exe
+        run: .\build\IRLoaderTests.exe
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -84,7 +91,7 @@ jobs:
 
       # -------------------------------------------------------------- Artifacts
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: dist/*.zip
@@ -100,9 +107,9 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: Simple-IR-VST-*
           path: artifacts

@@ -95,11 +95,12 @@ cmake --build build-universal --parallel
 
 ### Windows
 
-Use a Developer PowerShell or any shell with CMake on PATH:
+Use a Developer PowerShell for Visual Studio (2022 or newer) so that `cl.exe`
+is on the PATH, then:
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release --parallel
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 ```
 
 The project always builds VST3 and the standalone app. AU is added
@@ -143,9 +144,8 @@ cmake --build build --target IRLoaderTests
 ./build/IRLoaderTests
 ```
 
-On Windows the binary is `build\Release\IRLoaderTests.exe` (run
-`cmake --build build --config Release --target IRLoaderTests`). The same tests
-run on both platforms in CI.
+On Windows the binary is `build\IRLoaderTests.exe` (after the same Ninja
+Release build). The same tests run on both platforms in CI.
 
 It checks that the plugin is transparent without an IR, that 0/50/100% mix
 produce the expected dry/wet results, hot-swapping an IR while audio runs,
